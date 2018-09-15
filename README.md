@@ -1,1 +1,0 @@
-Dudorov2018Problem18
