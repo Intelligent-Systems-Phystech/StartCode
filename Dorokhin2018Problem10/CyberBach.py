@@ -51,23 +51,30 @@ files = []
 for f in os.listdir(os.getcwd()): #getting a list of all midi files in a wd
     if f.endswith(".mid"):
         files.append (f)    
-max_n = 20  #maximum number of notes on every track to analyse
+max_n = 25  #maximum number of notes on every track to analyse
 start_n = 3 #minimum number of notes on every track to analyse
 letters = []
 numbers = []
-models = [linear_model.LinearRegression(), linear_model.TheilSenRegressor()] #see readme.txt
-success_rate = numpy.zeros (shape = (2, max_n - start_n))
-tone_err_rate = numpy.zeros (shape = (2, max_n - start_n))
-errors = numpy.zeros (shape = (2, max_n - start_n))
+models = [linear_model.LinearRegression(), linear_model.LinearRegression(), linear_model.TheilSenRegressor(), linear_model.TheilSenRegressor()]
+success_rate = numpy.zeros (shape = (4, max_n - start_n))  #each model will be run with and without additional parameter (see below)
+tone_err_rate = numpy.zeros (shape = (4, max_n - start_n))
+errors = numpy.zeros (shape = (4, max_n - start_n))
 log = open ("logfile.txt", "a") #the programm runs slowly, so it's useful to save logs
 for mod_nu, cur_mod in enumerate (models):
     if mod_nu == 0:
-        log.write ("Linear model\n")
-    else:
-        log.write ("Theil-Sen predictor\n")
+        log.write ("Linear model, no suffix tree\n")
+    elif mod_nu == 1:
+        log.write ("Linear model with suffix tree\n")
+    elif mod_nu == 2:
+        log.write ("Theil-Sen predictor, no suffix tree\n")
+    elif mod_nu == 3:
+        log.write ("Theil-Sen predictor with suffix tree\n");
     for n in range (start_n, max_n):  
         print ("Extracting data for n =", n)
-        x = numpy.zeros (shape = (4 * len (files), n + 1)) #features are n previous notes and an estimation based on suffix-tree analysis
+        if mod_nu == 1 or mod_nu == 3:
+            x = numpy.zeros (shape = (4 * len (files), n + 1)) #features are n previous notes and an estimation based on suffix-tree analysis
+        else:
+            x = numpy.zeros (shape = (4 * len (files), n)) 
         y = numpy.zeros (shape = (4 * len (files))) #correct answers
         for j, i in enumerate(files):
             ProgressBar (j, len(files) - 1)
@@ -90,7 +97,7 @@ for mod_nu, cur_mod in enumerate (models):
                                     x[4 * j + index - 1][k] = event.get_pitch()#get n first notes
                                 if k == n:
                                     y[4 * j + index - 1] = event.get_pitch () #the n + 1 note is to be trained at
-                                    if n > 1:
+                                    if n > 1 and (mod_nu == 1 or mod_nu == 3):
                                         #note estmation based on simple syntax analysis
                                         current_note = digits_to_str ([x[4 * j + index - 1][n - 1]])
                                         for p, q in enumerate (x[4 * j + index - 1]): #getting a list of all notes played
@@ -110,7 +117,6 @@ for mod_nu, cur_mod in enumerate (models):
                                         numbers = []
                                 k += 1
                                 first_note = 0
-        print ("\n")
         reg = cur_mod
         reg.fit (x, y) #training
         #print (reg.coef_)
@@ -118,7 +124,10 @@ for mod_nu, cur_mod in enumerate (models):
         for f in os.listdir(os.getcwd() + "/test"):
             if f.endswith(".mid"):
                 test.append(f)
-        test_x = numpy.zeros(shape = (1, n + 1))
+        if mod_nu == 1 or mod_nu == 3:
+            test_x = numpy.zeros(shape = (1, n + 1))
+        else:
+            test_x = numpy.zeros(shape = (1, n))
         test_y = 0
         success = 0
         fail = 0
@@ -138,21 +147,21 @@ for mod_nu, cur_mod in enumerate (models):
                                 test_x[0][k] = event.get_pitch()
                             if k == n:
                                 test_y = event.get_pitch()
-
-                                current_note = digits_to_str ([test_x[0][n - 1]])
-                                for p, q in enumerate (test_x[0]): 
-                                    if digits_to_str([q]) not in letters and p < n:
-                                        letters.append (digits_to_str([q]))
-                                        numbers.append (q)
-                                    freq = [0] * len (letters) 
-                                    st = STree.STree (digits_to_str (test_x[0])) 
-                                    for q, let in enumerate (letters):
-                                        tmp = st.find_all (current_note + let)
-                                        if isinstance(tmp, list):
-                                            freq[q] += len (tmp)
-                                        else:
-                                            freq[q] += 1
-                                    test_x[0][n] = numbers[freq.index(max(freq))]
+                                if mod_nu == 1 or mod_nu == 3:                   
+                                    current_note = digits_to_str ([test_x[0][n - 1]])
+                                    for p, q in enumerate (test_x[0]): 
+                                        if digits_to_str([q]) not in letters and p < n:
+                                            letters.append (digits_to_str([q]))
+                                            numbers.append (q)
+                                        freq = [0] * len (letters) 
+                                        st = STree.STree (digits_to_str (test_x[0])) 
+                                        for q, let in enumerate (letters):
+                                            tmp = st.find_all (current_note + let)
+                                            if isinstance(tmp, list):
+                                                freq[q] += len (tmp)
+                                            else:
+                                                freq[q] += 1
+                                        test_x[0][n] = numbers[freq.index(max(freq))]
                             k+=1
                     ans = reg.predict (test_x)
                     if round(ans[0]) == test_y:
@@ -162,15 +171,13 @@ for mod_nu, cur_mod in enumerate (models):
                             tone_error += 1
                         fail += 1
                         errors[mod_nu][n - start_n] += (ans - test_y)**2
-        print ("\n")
         errors[mod_nu][n - start_n] /= (success + fail)
-        errors[mod_nu][n - start_n] = sqrt (errors[mod_nu][n - start_n])
+        errors[mod_nu][n - start_n] = round (sqrt (errors[mod_nu][n - start_n]), 4)
         success_rate[mod_nu][n - start_n] = round (success / (success + fail), 4)
         tone_err_rate [mod_nu][n - start_n] = round (tone_error / (success + fail), 4)
         print ("n is", n, "success rate is",  success_rate[mod_nu][n - start_n], \
                "tone error rate is",  tone_err_rate[mod_nu][n - start_n], "average error is", errors[mod_nu][n - start_n], "\n")
-        log.write ("%s %s\n" % (n, success_rate[mod_nu][n - start_n]))
-        log.write ("\n")
+        log.write ("%s %s %s %s\n" % (n, success_rate[mod_nu][n - start_n], tone_err_rate [mod_nu][n - start_n], errors[mod_nu][n - start_n]))
 log.close ()
 pylab.rcParams['font.family'] = 'serif'
 pylab.rcParams['font.serif'] = 'FreeSerif'
@@ -181,6 +188,7 @@ pylab.rcParams['ytick.labelsize'] = 24
 pylab.rcParams['legend.fontsize'] = 24
 pylab.rcParams['axes.titlesize'] = 36
 pylab.rcParams['axes.labelsize'] = 24
+pylab.grid ()
 x = numpy.linspace (start_n, max_n, max_n - start_n)
-pylab.plot (x, success_rate[0], 'ro', x, success_rate[1], 'bo')
-pylab.savefig('1.png')
+pylab.plot (x, success_rate[0], '--ro', x, success_rate[1], '--bo', x, success_rate[2], '--go', x, success_rate[3], '--ko')
+pylab.savefig("1.png")
