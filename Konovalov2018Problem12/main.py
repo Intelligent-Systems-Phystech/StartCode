@@ -20,3 +20,4 @@ plt.rcParams['axes.labelsize'] = 24
 
 data = requests.get(https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data)
 data.head()
+print("Hello")
