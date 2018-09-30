@@ -64,5 +64,5 @@ for l_n, swap_nu in enumerate ({5, 15, 40}):
     print ("Training set loss: %f" % mlp.loss_)
     ax.plot(mlp.loss_curve_, label = labels[j + l_n], **plot_args[j + l_n + 1])
 fig.legend (ax.get_lines (), labels, ncol = 2, loc = 9)
-plt.savefig('learning_curve.png')
+plt.savefig('plot_learning_curve.png')
 plt.show()
