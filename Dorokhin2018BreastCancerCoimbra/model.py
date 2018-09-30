@@ -11,7 +11,10 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import MinMaxScaler
 
 #age,BMI,Glucose,Insulin,HOMA,Leptin,Adiponectin,Resistin,MCP.1,Classification
-
+'''
+link to the dataset:
+https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Coimbra#
+'''
 plot_args = [{'c': 'red', 'linestyle': '-'},
         {'c': 'green', 'linestyle': '-'},
         {'c': 'blue', 'linestyle': '-'},
