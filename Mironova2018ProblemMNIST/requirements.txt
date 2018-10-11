@@ -1,0 +1,15 @@
+MNIST:
+
+numpy
+matplotlib
+keras
+sklearn
+tqdm
+
+
+MNIST_NN:
+
+numpy
+matplotlib
+keras
+pytorch
